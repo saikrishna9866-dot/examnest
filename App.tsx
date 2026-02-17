@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ViewState, Category, Subject, AcademicFile } from './types';
 import { CATEGORIES, SUBJECTS } from './constants';
 import { supabase } from './lib/supabase';
@@ -10,6 +9,8 @@ import SubjectGrid from './components/SubjectGrid';
 import AdminPanel from './components/AdminPanel';
 import FileActionModal from './components/FileActionModal';
 
+const CACHE_KEY = 'exam_nest_files_cache';
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('HOME');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -18,9 +19,24 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<AcademicFile[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch files from Supabase
-  const fetchFiles = async () => {
-    setLoading(true);
+  // Quick initial load from Cache
+  useEffect(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setFiles(parsed);
+        setLoading(false); // Immediate transition if we have cache
+      } catch (e) {
+        console.error("Cache parsing error", e);
+      }
+    }
+  }, []);
+
+  // Fetch files from Supabase with background update
+  const fetchFiles = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setLoading(true);
+    
     try {
       const { data, error } = await supabase
         .from('academic_files')
@@ -39,17 +55,19 @@ const App: React.FC = () => {
           uploadDate: new Date(item.created_at).toLocaleDateString()
         }));
         setFiles(formattedFiles);
+        // Persist for next fast load
+        localStorage.setItem(CACHE_KEY, JSON.stringify(formattedFiles));
       }
     } catch (err) {
       console.error('Error fetching files:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchFiles();
-  }, []);
+  }, [fetchFiles]);
 
   const handleCategoryClick = (cat: Category) => {
     setSelectedCategory(cat);
@@ -67,7 +85,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen overflow-x-hidden">
       <Header 
         currentView={currentView} 
         onNavigateHome={navigateHome}
@@ -75,37 +93,42 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8 max-w-6xl">
-        {loading && currentView !== 'ADMIN' && (
-          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-500 font-medium">Fetching Resources...</p>
+        {loading && files.length === 0 && currentView !== 'ADMIN' && (
+          <div className="flex flex-col items-center justify-center py-32">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-slate-100 rounded-full"></div>
+              <div className="absolute top-0 w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="mt-6 text-slate-500 font-semibold tracking-wide animate-pulse">OPTIMIZING RESOURCES...</p>
           </div>
         )}
 
-        {!loading && currentView === 'HOME' && (
+        {(!loading || files.length > 0) && currentView === 'HOME' && (
           <div className="animate-fade-in">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4">Select a Resource Category</h2>
-              <p className="text-slate-600">Access curated study materials, papers, and assignments for R23.</p>
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">R23 Resource Hub</h2>
+              <p className="text-slate-500 max-w-2xl mx-auto text-lg">Curated materials optimized for quick access. Pick a category to get started.</p>
             </div>
             <CategorySelection onSelect={handleCategoryClick} />
           </div>
         )}
 
-        {!loading && currentView === 'SUBJECT_LIST' && selectedCategory && (
+        {(!loading || files.length > 0) && currentView === 'SUBJECT_LIST' && selectedCategory && (
           <div className="animate-fade-in">
             <button 
               onClick={navigateHome}
-              className="mb-6 flex items-center text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+              className="mb-8 group flex items-center text-slate-500 hover:text-indigo-600 font-bold transition-all"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
+              <div className="mr-2 p-1.5 bg-white border border-slate-200 rounded-lg group-hover:bg-indigo-50 group-hover:border-indigo-100 group-hover:-translate-x-1 transition-all">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </div>
               Back to Categories
             </button>
             <div className="mb-10">
-              <h2 className="text-3xl font-bold text-slate-800">{selectedCategory}</h2>
-              <p className="text-slate-500 mt-2">Choose a subject to view available documents.</p>
+              <span className="text-xs font-black tracking-widest text-indigo-500 uppercase px-3 py-1 bg-indigo-50 rounded-full mb-3 inline-block">Selected Category</span>
+              <h2 className="text-4xl font-black text-slate-900">{selectedCategory}</h2>
             </div>
             <SubjectGrid onSelect={handleSubjectClick} />
           </div>
@@ -116,7 +139,7 @@ const App: React.FC = () => {
             isLoggedIn={isAdminLoggedIn} 
             onLoginSuccess={() => setIsAdminLoggedIn(true)} 
             files={files}
-            onUpdateFiles={fetchFiles}
+            onUpdateFiles={() => fetchFiles(true)}
           />
         )}
       </main>
