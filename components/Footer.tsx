@@ -90,17 +90,9 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
             </h3>
             <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
               <div className="mb-4">
-                <h4 className="font-bold text-xl text-indigo-400">T. Saikrishna</h4>
+                <h4 className="font-bold text-lg text-indigo-400">From Artificial Intelligence Department</h4>
               </div>
               <div className="space-y-3 pt-4 border-t border-slate-700/50">
-                <div className="flex items-center text-sm text-slate-400">
-                  <span className="w-20 font-bold text-slate-500 uppercase text-[10px]">Student ID</span>
-                  <span className="text-slate-200">24A3143C8</span>
-                </div>
-                <div className="flex items-center text-sm text-slate-400">
-                  <span className="w-20 font-bold text-slate-500 uppercase text-[10px]">Department</span>
-                  <span className="text-slate-200">Artificial Intelligence</span>
-                </div>
                 <div className="flex items-center text-sm text-slate-400">
                   <span className="w-20 font-bold text-slate-500 uppercase text-[10px]">Email</span>
                   <a href="mailto:examnest01@gmail.com" className="text-indigo-400 hover:underline truncate">examnest01@gmail.com</a>

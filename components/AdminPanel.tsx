@@ -194,7 +194,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <div className="relative z-10">
           <h2 className="text-3xl font-bold">Dashboard</h2>
-          <p className="text-indigo-400 font-medium">Lead Admin: T. Saikrishna</p>
+          <p className="text-indigo-400 font-medium tracking-wide">Artificial Intelligence Department</p>
         </div>
         <div className="mt-6 md:mt-0 text-center md:text-right relative z-10">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-1">Total Resources</p>
