@@ -14,13 +14,15 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
     e.preventDefault();
     if (!feedback.trim()) return;
     
-    // Construct mailto link
+    // Construct Gmail compose link
     const subject = encodeURIComponent("Exam Nest Feedback");
     const body = encodeURIComponent(feedback);
-    window.location.href = `mailto:examnest01@gmail.com?subject=${subject}&body=${body}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=examnest01@gmail.com&su=${subject}&body=${body}`;
+    
+    // Open in new tab
+    window.open(gmailUrl, '_blank');
     
     setFeedback('');
-    alert('Thank you for your feedback! Opening your email client...');
   };
 
   return (
@@ -58,7 +60,7 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
               Feedback
             </h3>
             <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-              Help us make this better! Send us your comments or improvement ideas.
+              Help us make this better! Send us your comments or improvement ideas via Gmail.
             </p>
             <form onSubmit={handleFeedbackSubmit} className="space-y-3">
               <textarea 
@@ -70,9 +72,12 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
               />
               <button 
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-900/20 active:scale-95"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-900/20 active:scale-95 flex items-center justify-center space-x-2"
               >
-                Send Feedback
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L12 9.573l8.073-6.08c1.618-1.214 3.927-.059 3.927 1.964z"/>
+                </svg>
+                <span>Send via Gmail</span>
               </button>
             </form>
           </div>
@@ -84,20 +89,17 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
               About Admin
             </h3>
             <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center font-bold text-xl mr-4 border-2 border-slate-700">TS</div>
-                <div>
-                  <h4 className="font-bold text-lg">T. Saikrishna</h4>
-                </div>
+              <div className="mb-4">
+                <h4 className="font-bold text-xl text-indigo-400">T. Saikrishna</h4>
               </div>
-              <div className="space-y-3 pt-4 border-t border-slate-700">
+              <div className="space-y-3 pt-4 border-t border-slate-700/50">
                 <div className="flex items-center text-sm text-slate-400">
                   <span className="w-20 font-bold text-slate-500 uppercase text-[10px]">Student ID</span>
-                  <span>24A3143C8</span>
+                  <span className="text-slate-200">24A3143C8</span>
                 </div>
                 <div className="flex items-center text-sm text-slate-400">
                   <span className="w-20 font-bold text-slate-500 uppercase text-[10px]">Department</span>
-                  <span>CAI-B</span>
+                  <span className="text-slate-200">Artificial Intelligence</span>
                 </div>
                 <div className="flex items-center text-sm text-slate-400">
                   <span className="w-20 font-bold text-slate-500 uppercase text-[10px]">Email</span>

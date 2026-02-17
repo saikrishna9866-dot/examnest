@@ -23,5 +23,5 @@ export const SUBJECTS: Subject[] = [
 
 export const ADMIN_CREDENTIALS = {
   username: 'Examnest',
-  password: 'examnest@3813'
+  password: 'Examnest@3813'
 };

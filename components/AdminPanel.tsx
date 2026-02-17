@@ -14,6 +14,7 @@ interface AdminPanelProps {
 const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, files, onUpdateFiles }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   
@@ -54,13 +55,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
 
     setIsUploading(true);
     try {
-      // 1. Prepare unique filename
       const cleanName = selectedFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const filePath = `${Date.now()}_${cleanName}`;
 
-      // 2. Upload to Storage bucket named 'resources'
-      // We use 'upsert: true' to overwrite if a file with the same name exists
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('resources')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
@@ -68,17 +66,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
         });
 
       if (uploadError) {
-        throw new Error(`Storage Error: ${uploadError.message}. Make sure the bucket "resources" exists and is Public.`);
+        throw new Error(`Storage Error: ${uploadError.message}`);
       }
 
-      // 3. Get Public URL
       const { data: publicUrlData } = supabase.storage
         .from('resources')
         .getPublicUrl(filePath);
 
       const publicUrl = publicUrlData.publicUrl;
 
-      // 4. Save metadata to the database table 'academic_files'
       const { error: dbError } = await supabase
         .from('academic_files')
         .insert([{
@@ -90,13 +86,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
         }]);
 
       if (dbError) {
-        throw new Error(`Database Error: ${dbError.message}. Make sure the "academic_files" table exists.`);
+        throw new Error(`Database Error: ${dbError.message}`);
       }
 
       alert('File uploaded successfully!');
-      onUpdateFiles(); // Refresh the list
+      onUpdateFiles();
       
-      // Reset form
       setNewFileName('');
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -113,16 +108,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
     if (!confirm(`Delete "${file.fileName}"? This cannot be undone.`)) return;
     
     try {
-      // Delete database record
       const { error: dbError } = await supabase
         .from('academic_files')
         .delete()
         .eq('id', file.id);
       
       if (dbError) throw dbError;
-
-      // Note: In a real app you might also want to delete from storage using storage_path
-      // but for simplicity we're just removing the DB record here.
 
       onUpdateFiles();
       alert('File deleted.');
@@ -145,22 +136,48 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
             <p className="text-slate-500 text-sm mt-1">Authenticate to manage Exam Nest</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              placeholder="Username"
-              required
-            />
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              placeholder="Password"
-              required
-            />
+            <div className="relative">
+              <input 
+                type="text" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all pl-11"
+                placeholder="Username"
+                required
+              />
+              <svg className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all pl-11 pr-11"
+                placeholder="Password"
+                required
+              />
+              <svg className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+              >
+                {showPassword ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
             {error && <p className="text-red-500 text-xs text-center font-medium">{error}</p>}
             <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
               Access Dashboard
@@ -186,7 +203,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Upload Form */}
         <div className="lg:col-span-1">
           <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm sticky top-24">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
@@ -275,7 +291,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
           </div>
         </div>
 
-        {/* File List */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">

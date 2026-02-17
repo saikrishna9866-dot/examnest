@@ -12,6 +12,11 @@ interface FileActionModalProps {
 const FileActionModal: React.FC<FileActionModalProps> = ({ subject, category, files, onClose }) => {
   const [viewingFile, setViewingFile] = useState<AcademicFile | null>(null);
 
+  // Use Google Viewer to bypass Chrome iframe security blocks for external PDFs
+  const getViewerUrl = (fileUrl: string) => {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -133,13 +138,23 @@ const FileActionModal: React.FC<FileActionModalProps> = ({ subject, category, fi
                 </button>
               </div>
             </div>
-            <div className="flex-grow bg-slate-100 flex items-center justify-center p-4">
-               {/* PDF Simulator (Standard browser view) */}
+            <div className="flex-grow bg-slate-100 flex items-center justify-center p-0 relative">
                <iframe 
-                src={`${viewingFile.fileUrl}#toolbar=0`}
-                className="w-full h-full rounded-lg shadow-xl bg-white"
+                src={getViewerUrl(viewingFile.fileUrl)}
+                className="w-full h-full bg-white"
                 title="Document Viewer"
+                frameBorder="0"
                ></iframe>
+               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 md:hidden">
+                 <a 
+                   href={viewingFile.fileUrl} 
+                   target="_blank" 
+                   rel="noreferrer"
+                   className="bg-indigo-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg"
+                 >
+                   Trouble viewing? Open PDF
+                 </a>
+               </div>
             </div>
           </div>
         )}
