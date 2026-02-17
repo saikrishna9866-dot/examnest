@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { AcademicFile, Category, Subject } from '../types';
 import { ADMIN_CREDENTIALS, SUBJECTS, CATEGORIES } from '../constants';
@@ -173,7 +172,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
                 ) : (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7z" />
                   </svg>
                 )}
               </button>
@@ -194,7 +193,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <div className="relative z-10">
           <h2 className="text-3xl font-bold">Dashboard</h2>
-          <p className="text-indigo-400 font-medium tracking-wide">Artificial Intelligence Department</p>
+          <div className="flex flex-col">
+            <p className="text-indigo-400 font-medium tracking-wide">Artificial Intelligence Department</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Made By Team Alpha</p>
+          </div>
         </div>
         <div className="mt-6 md:mt-0 text-center md:text-right relative z-10">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-1">Total Resources</p>

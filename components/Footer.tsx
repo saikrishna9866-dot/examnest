@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { CATEGORIES } from '../constants';
 import { Category } from '../types';
@@ -90,7 +89,8 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
             </h3>
             <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
               <div className="mb-4">
-                <h4 className="font-bold text-lg text-indigo-400">From Artificial Intelligence Department</h4>
+                <h4 className="font-bold text-lg text-indigo-400 leading-tight">From Artificial Intelligence Department</h4>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-2">Made By Team Alpha</p>
               </div>
               <div className="space-y-3 pt-4 border-t border-slate-700/50">
                 <div className="flex items-center text-sm text-slate-400">
