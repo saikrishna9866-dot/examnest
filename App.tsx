@@ -8,6 +8,9 @@ import CategorySelection from './components/CategorySelection';
 import SubjectGrid from './components/SubjectGrid';
 import AdminPanel from './components/AdminPanel';
 import FileActionModal from './components/FileActionModal';
+import SearchBar from './components/SearchBar';
+import RecentUploads from './components/RecentUploads';
+import FeedbackForm from './components/FeedbackForm';
 
 const CACHE_KEY = 'exam_nest_files_cache';
 
@@ -84,6 +87,10 @@ const App: React.FC = () => {
     setSelectedSubject(null);
   };
 
+  const handleFileSelect = (file: AcademicFile) => {
+    window.open(file.fileUrl, '_blank');
+  };
+
   return (
     <div className="flex flex-col min-h-screen overflow-x-hidden">
       <Header 
@@ -107,9 +114,25 @@ const App: React.FC = () => {
           <div className="animate-fade-in">
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">R23 Resource Hub</h2>
-              <p className="text-slate-500 max-w-2xl mx-auto text-lg">Curated materials optimized for quick access. Pick a category to get started.</p>
+              <p className="text-slate-500 max-w-2xl mx-auto text-lg mb-8">Curated materials optimized for quick access. Pick a category to get started.</p>
+              
+              <SearchBar files={files} onFileSelect={handleFileSelect} />
             </div>
-            <CategorySelection onSelect={handleCategoryClick} />
+
+            <RecentUploads files={files} onFileClick={handleFileSelect} />
+
+            <div className="mb-16">
+              <div className="flex items-center space-x-4 mb-8">
+                <div className="h-px flex-grow bg-slate-200"></div>
+                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">Explore Categories</h3>
+                <div className="h-px flex-grow bg-slate-200"></div>
+              </div>
+              <CategorySelection onSelect={handleCategoryClick} />
+            </div>
+
+            <div className="mt-24">
+              <FeedbackForm />
+            </div>
           </div>
         )}
 
@@ -138,6 +161,7 @@ const App: React.FC = () => {
           <AdminPanel 
             isLoggedIn={isAdminLoggedIn} 
             onLoginSuccess={() => setIsAdminLoggedIn(true)} 
+            onLogout={() => setIsAdminLoggedIn(false)}
             files={files}
             onUpdateFiles={() => fetchFiles(true)}
           />

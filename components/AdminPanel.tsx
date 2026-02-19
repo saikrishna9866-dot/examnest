@@ -6,16 +6,24 @@ import { supabase } from '../lib/supabase';
 interface AdminPanelProps {
   isLoggedIn: boolean;
   onLoginSuccess: () => void;
+  onLogout: () => void;
   files: AcademicFile[];
   onUpdateFiles: () => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, files, onUpdateFiles }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onLogout, files, onUpdateFiles }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogout = () => {
+    setUsername('');
+    setPassword('');
+    onLogout();
+  };
   
   const [newFileSubject, setNewFileSubject] = useState<Subject>(SUBJECTS[0]);
   const [newFileCategory, setNewFileCategory] = useState<Category>(CATEGORIES[0]);
@@ -198,11 +206,53 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, fil
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Made By Team Alpha</p>
           </div>
         </div>
-        <div className="mt-6 md:mt-0 text-center md:text-right relative z-10">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-1">Total Resources</p>
-          <p className="text-4xl font-black text-white">{files.length}</p>
+        <div className="mt-6 md:mt-0 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 relative z-10">
+          <div className="text-center md:text-right">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-1">Total Resources</p>
+            <p className="text-4xl font-black text-white">{files.length}</p>
+          </div>
+          <button 
+            onClick={() => setShowLogoutConfirm(true)}
+            className="group flex items-center space-x-2 bg-white/10 hover:bg-red-500/20 text-white px-5 py-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
+          >
+            <svg className="w-5 h-5 text-slate-400 group-hover:text-red-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="font-bold text-sm">Logout</span>
+          </button>
         </div>
       </div>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl animate-scale-up border border-slate-100">
+            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 text-center mb-2">Confirm Logout</h3>
+            <p className="text-slate-500 text-center mb-8 font-medium">Are you sure you want to exit the admin dashboard?</p>
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-4 px-4 rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+              >
+                Stay
+              </button>
+              <button 
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+                className="flex-1 py-4 px-4 rounded-2xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-200 transition-all"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
