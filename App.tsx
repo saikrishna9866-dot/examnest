@@ -10,7 +10,6 @@ import AdminPanel from './components/AdminPanel';
 import FileActionModal from './components/FileActionModal';
 import SearchBar from './components/SearchBar';
 import RecentUploads from './components/RecentUploads';
-import FeedbackForm from './components/FeedbackForm';
 
 const CACHE_KEY = 'exam_nest_files_cache';
 
@@ -128,10 +127,6 @@ const App: React.FC = () => {
                 <div className="h-px flex-grow bg-slate-200"></div>
               </div>
               <CategorySelection onSelect={handleCategoryClick} />
-            </div>
-
-            <div className="mt-24">
-              <FeedbackForm />
             </div>
           </div>
         )}
