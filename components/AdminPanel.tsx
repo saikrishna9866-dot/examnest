@@ -19,6 +19,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
   const [isUploading, setIsUploading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [storageStatus, setStorageStatus] = useState<'checking' | 'ok' | 'error' | 'idle'>('idle');
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   const checkStorage = async () => {
     setStorageStatus('checking');
@@ -287,26 +288,106 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-6">
           {storageStatus === 'error' && (
-            <div className="bg-red-50 border border-red-100 p-6 rounded-2xl animate-fade-in">
-              <div className="flex items-start space-x-3">
-                <div className="p-2 bg-red-100 text-red-600 rounded-lg">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] animate-fade-in shadow-xl shadow-amber-900/5">
+              <div className="flex items-start space-x-4">
+                <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Storage Connection Error</h4>
-                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                    The app cannot connect to your Supabase storage. 
-                    <strong> Action Required:</strong> Create a <u>Public</u> bucket named <code className="bg-red-100 px-1 rounded">resources</code> in your Supabase dashboard.
+                <div className="flex-1">
+                  <h4 className="text-lg font-black text-amber-900 uppercase tracking-tight leading-none mb-2">Storage Setup Required</h4>
+                  <p className="text-sm text-amber-800 leading-relaxed mb-4">
+                    Your Supabase project is connected, but the <strong>Storage Bucket</strong> is not configured correctly.
                   </p>
                   <button 
+                    onClick={() => setShowSetupGuide(true)}
+                    className="w-full bg-amber-600 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg shadow-amber-200"
+                  >
+                    Open Setup Guide
+                  </button>
+                  <button 
                     onClick={checkStorage}
-                    className="mt-3 text-[10px] font-black uppercase tracking-widest text-red-600 hover:underline"
+                    className="w-full mt-2 text-[10px] font-black uppercase tracking-widest text-amber-600 hover:underline"
                   >
                     Retry Connection
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {showSetupGuide && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
+              <div className="bg-white rounded-[3rem] p-10 max-w-2xl w-full shadow-2xl animate-scale-up border border-slate-100 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">Supabase Setup Guide</h3>
+                    <p className="text-slate-500 font-medium">Follow these 3 steps to fix the storage error permanently.</p>
+                  </div>
+                  <button onClick={() => setShowSetupGuide(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                    <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="flex space-x-6">
+                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">1</div>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-lg mb-2">Create the Bucket</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        Go to your Supabase Dashboard → <strong>Storage</strong>. Click "New Bucket" and name it exactly:
+                      </p>
+                      <div className="mt-3 p-3 bg-slate-100 rounded-xl font-mono text-indigo-600 font-bold flex justify-between items-center">
+                        <span>resources</span>
+                        <button onClick={() => navigator.clipboard.writeText('resources')} className="text-[10px] uppercase tracking-widest text-slate-400 hover:text-indigo-600">Copy</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-6">
+                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">2</div>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-lg mb-2">Make it Public</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        When creating the bucket (or in bucket settings), toggle the <strong>"Public"</strong> switch to ON. This allows the app to generate shareable links for your PDFs.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-6">
+                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">3</div>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-lg mb-2">Configure CORS</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        Go to <strong>Storage → Settings → CORS</strong>. Add a new row:
+                      </p>
+                      <ul className="mt-3 space-y-2 text-xs font-medium text-slate-500">
+                        <li className="flex justify-between border-b border-slate-100 pb-1"><span>Allowed Origins:</span> <span className="text-slate-900">*</span></li>
+                        <li className="flex justify-between border-b border-slate-100 pb-1"><span>Allowed Methods:</span> <span className="text-slate-900">GET, POST, PUT, DELETE</span></li>
+                        <li className="flex justify-between border-b border-slate-100 pb-1"><span>Allowed Headers:</span> <span className="text-slate-900">*</span></li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-12 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
+                  <p className="text-xs text-indigo-700 font-medium leading-relaxed">
+                    <strong>Note:</strong> After completing these steps, click the "Retry Connection" button or refresh the page. The error will disappear and you'll be able to upload files.
+                  </p>
+                </div>
+
+                <button 
+                  onClick={() => {
+                    setShowSetupGuide(false);
+                    checkStorage();
+                  }}
+                  className="w-full mt-8 bg-slate-900 text-white py-5 rounded-2xl font-black hover:bg-indigo-600 transition-all shadow-xl"
+                >
+                  I've completed the setup
+                </button>
               </div>
             </div>
           )}
