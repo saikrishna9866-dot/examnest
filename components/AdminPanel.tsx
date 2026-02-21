@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AcademicFile, Category, Subject } from '../types';
 import { ADMIN_CREDENTIALS, SUBJECTS, CATEGORIES } from '../constants';
 import { supabase } from '../lib/supabase';
