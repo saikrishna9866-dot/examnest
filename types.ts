@@ -1,17 +1,6 @@
 
-export type Category = 'NOTES' | 'MID QUESTION PAPERS' | 'ASSIGNMENTS' | 'PREVIOUS YEAR SEMESTER PAPERS';
-
-export type Subject = 
-  | 'M1' 
-  | 'Physics' 
-  | 'Engineering Drawing' 
-  | 'BEEE' 
-  | 'Introduction to programming' 
-  | 'Chemistry' 
-  | 'BCME' 
-  | 'English' 
-  | 'M2' 
-  | 'Data Structures';
+export type Category = string;
+export type Subject = string;
 
 export interface AcademicFile {
   id: string;

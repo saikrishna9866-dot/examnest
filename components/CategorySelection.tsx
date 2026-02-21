@@ -4,10 +4,11 @@ import { CATEGORIES } from '../constants';
 import { Category } from '../types';
 
 interface CategorySelectionProps {
+  categories: Category[];
   onSelect: (cat: Category) => void;
 }
 
-const CategorySelection: React.FC<CategorySelectionProps> = ({ onSelect }) => {
+const CategorySelection: React.FC<CategorySelectionProps> = ({ categories, onSelect }) => {
   const getIcon = (cat: Category) => {
     switch (cat) {
       case 'NOTES': 
@@ -48,6 +49,10 @@ const CategorySelection: React.FC<CategorySelectionProps> = ({ onSelect }) => {
             d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" 
           />
         );
+      default:
+        return (
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        );
     }
   };
 
@@ -57,13 +62,13 @@ const CategorySelection: React.FC<CategorySelectionProps> = ({ onSelect }) => {
       case 'MID QUESTION PAPERS': return 'Official internal examination archives.';
       case 'ASSIGNMENTS': return 'Curated task sheets and problem sets.';
       case 'PREVIOUS YEAR SEMESTER PAPERS': return 'Legacy university examination collection.';
-      default: return '';
+      default: return 'Academic resources and study materials.';
     }
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {CATEGORIES.map((cat) => (
+      {categories.map((cat) => (
         <button
           key={cat}
           onClick={() => onSelect(cat)}

@@ -8,11 +8,25 @@ interface AdminPanelProps {
   onLoginSuccess: () => void;
   onLogout: () => void;
   files: AcademicFile[];
+  subjects: Subject[];
+  categories: Category[];
   onUpdateFiles: () => void;
+  onUpdateConfig: () => void;
   onFileView: (file: AcademicFile) => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onLogout, files, onUpdateFiles, onFileView }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ 
+  isLoggedIn, 
+  onLoginSuccess, 
+  onLogout, 
+  files, 
+  subjects, 
+  categories, 
+  onUpdateFiles, 
+  onUpdateConfig,
+  onFileView 
+}) => {
+  const [activeTab, setActiveTab] = useState<'FILES' | 'CONFIG'>('FILES');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,9 +61,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
     onLogout();
   };
   
-  const [newFileSubject, setNewFileSubject] = useState<Subject>(SUBJECTS[0]);
-  const [newFileCategory, setNewFileCategory] = useState<Category>(CATEGORIES[0]);
+  const [newFileSubject, setNewFileSubject] = useState<Subject>('');
+  const [newFileCategory, setNewFileCategory] = useState<Category>('');
   const [newFileName, setNewFileName] = useState('');
+
+  // Dynamic Config State
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingItem, setEditingItem] = useState<{ type: 'SUBJECT' | 'CATEGORY', oldName: string, newName: string } | null>(null);
+
+  useEffect(() => {
+    if (subjects.length > 0 && !newFileSubject) setNewFileSubject(subjects[0]);
+    if (categories.length > 0 && !newFileCategory) setNewFileCategory(categories[0]);
+  }, [subjects, categories, newFileSubject, newFileCategory]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,6 +185,64 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
     }
   };
 
+  // Dynamic Config Handlers
+  const handleAddSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubjectName.trim()) return;
+    try {
+      const { error } = await supabase.from('subjects').insert([{ name: newSubjectName.trim() }]);
+      if (error) throw error;
+      setNewSubjectName('');
+      onUpdateConfig();
+    } catch (err: any) {
+      alert(`Error adding subject: ${err.message}`);
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    try {
+      const { error } = await supabase.from('categories').insert([{ name: newCategoryName.trim() }]);
+      if (error) throw error;
+      setNewCategoryName('');
+      onUpdateConfig();
+    } catch (err: any) {
+      alert(`Error adding category: ${err.message}`);
+    }
+  };
+
+  const handleDeleteConfig = async (type: 'SUBJECT' | 'CATEGORY', name: string) => {
+    if (!confirm(`Delete ${type.toLowerCase()} "${name}"? This might affect existing files.`)) return;
+    const table = type === 'SUBJECT' ? 'subjects' : 'categories';
+    try {
+      const { error } = await supabase.from(table).delete().eq('name', name);
+      if (error) throw error;
+      onUpdateConfig();
+    } catch (err: any) {
+      alert(`Error deleting: ${err.message}`);
+    }
+  };
+
+  const handleRenameConfig = async () => {
+    if (!editingItem || !editingItem.newName.trim()) return;
+    const table = editingItem.type === 'SUBJECT' ? 'subjects' : 'categories';
+    try {
+      const { error } = await supabase.from(table).update({ name: editingItem.newName.trim() }).eq('name', editingItem.oldName);
+      if (error) throw error;
+      
+      // Also update academic_files to maintain consistency
+      const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
+      await supabase.from('academic_files').update({ [column]: editingItem.newName.trim() }).eq(column, editingItem.oldName);
+      
+      setEditingItem(null);
+      onUpdateConfig();
+      onUpdateFiles();
+    } catch (err: any) {
+      alert(`Error renaming: ${err.message}`);
+    }
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="max-w-md mx-auto mt-12 animate-fade-in">
@@ -237,6 +319,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
             <p className="text-indigo-400 font-medium tracking-wide">Artificial Intelligence Department</p>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Made By Saikrishna tadi</p>
           </div>
+          <div className="flex mt-6 space-x-2">
+            <button 
+              onClick={() => setActiveTab('FILES')}
+              className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'FILES' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+            >
+              Files
+            </button>
+            <button 
+              onClick={() => setActiveTab('CONFIG')}
+              className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'CONFIG' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+            >
+              Structure
+            </button>
+          </div>
         </div>
         <div className="mt-6 md:mt-0 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 relative z-10">
           <div className="text-center md:text-right">
@@ -286,9 +382,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-6">
-          {storageStatus === 'error' && (
+      {activeTab === 'FILES' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            {storageStatus === 'error' && (
             <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] animate-fade-in shadow-xl shadow-amber-900/5">
               <div className="flex items-start space-x-4">
                 <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
@@ -372,6 +469,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
                       </ul>
                     </div>
                   </div>
+
+                  <div className="flex space-x-6">
+                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">4</div>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-lg mb-2">Create Database Tables</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        Go to <strong>SQL Editor</strong> and run this query to enable dynamic subjects and categories:
+                      </p>
+                      <pre className="mt-3 p-4 bg-slate-900 text-indigo-300 rounded-xl text-[10px] font-mono overflow-x-auto">
+{`CREATE TABLE IF NOT EXISTS subjects (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);`}
+                      </pre>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-12 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
@@ -406,7 +526,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
                   value={newFileSubject}
                   onChange={(e) => setNewFileSubject(e.target.value as Subject)}
                 >
-                  {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -416,7 +536,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
                   value={newFileCategory}
                   onChange={(e) => setNewFileCategory(e.target.value as Category)}
                 >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
@@ -548,6 +668,130 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
           </div>
         </div>
       </div>
+    ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
+          {/* Subjects Management */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center">
+              <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
+              Manage Subjects
+            </h3>
+            <form onSubmit={handleAddSubject} className="flex space-x-2 mb-8">
+              <input 
+                type="text" 
+                value={newSubjectName}
+                onChange={(e) => setNewSubjectName(e.target.value)}
+                placeholder="New Subject Name"
+                className="flex-grow p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              />
+              <button type="submit" className="px-6 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all">
+                Add
+              </button>
+            </form>
+            <div className="space-y-3">
+              {subjects.map(sub => (
+                <div key={sub} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                  <span className="font-bold text-slate-700">{sub}</span>
+                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => setEditingItem({ type: 'SUBJECT', oldName: sub, newName: sub })}
+                      className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteConfig('SUBJECT', sub)}
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Categories Management */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center">
+              <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
+              Manage Sections
+            </h3>
+            <form onSubmit={handleAddCategory} className="flex space-x-2 mb-8">
+              <input 
+                type="text" 
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="New Section Name"
+                className="flex-grow p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              />
+              <button type="submit" className="px-6 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all">
+                Add
+              </button>
+            </form>
+            <div className="space-y-3">
+              {categories.map(cat => (
+                <div key={cat} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                  <span className="font-bold text-slate-700">{cat}</span>
+                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => setEditingItem({ type: 'CATEGORY', oldName: cat, newName: cat })}
+                      className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteConfig('CATEGORY', cat)}
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {editingItem && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl animate-scale-up border border-slate-100">
+            <h3 className="text-2xl font-black text-slate-900 mb-2">Rename {editingItem.type}</h3>
+            <p className="text-slate-500 mb-6 font-medium">Changing this will update all existing files associated with it.</p>
+            <input 
+              type="text" 
+              value={editingItem.newName}
+              onChange={(e) => setEditingItem({ ...editingItem, newName: e.target.value })}
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all mb-6"
+              autoFocus
+            />
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => setEditingItem(null)}
+                className="flex-1 py-4 px-4 rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleRenameConfig}
+                className="flex-1 py-4 px-4 rounded-2xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

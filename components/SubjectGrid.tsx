@@ -4,13 +4,14 @@ import { SUBJECTS } from '../constants';
 import { Subject } from '../types';
 
 interface SubjectGridProps {
+  subjects: Subject[];
   onSelect: (sub: Subject) => void;
 }
 
-const SubjectGrid: React.FC<SubjectGridProps> = ({ onSelect }) => {
+const SubjectGrid: React.FC<SubjectGridProps> = ({ subjects, onSelect }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      {SUBJECTS.map((subject) => (
+      {subjects.map((subject) => (
         <button
           key={subject}
           onClick={() => onSelect(subject)}

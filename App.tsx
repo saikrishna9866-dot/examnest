@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ViewState, Category, Subject, AcademicFile } from './types';
-import { CATEGORIES, SUBJECTS } from './constants';
+import { CATEGORIES as DEFAULT_CATEGORIES, SUBJECTS as DEFAULT_SUBJECTS } from './constants';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -23,6 +23,31 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<AcademicFile | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      const { data: subData } = await supabase.from('subjects').select('name').order('name');
+      const { data: catData } = await supabase.from('categories').select('name').order('name');
+
+      if (subData && subData.length > 0) {
+        setSubjects(subData.map(s => s.name));
+      } else {
+        setSubjects(DEFAULT_SUBJECTS);
+      }
+
+      if (catData && catData.length > 0) {
+        setCategories(catData.map(c => c.name));
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
+      }
+    } catch (err) {
+      console.error('Error fetching config:', err);
+      setSubjects(DEFAULT_SUBJECTS);
+      setCategories(DEFAULT_CATEGORIES);
+    }
+  }, []);
 
   // Quick initial load from Cache
   useEffect(() => {
@@ -74,7 +99,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchFiles();
-  }, [fetchFiles]);
+    fetchConfig();
+  }, [fetchFiles, fetchConfig]);
 
   const handleCategoryClick = (cat: Category) => {
     setSelectedCategory(cat);
@@ -144,7 +170,10 @@ const App: React.FC = () => {
                 <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">Explore Categories</h3>
                 <div className="h-px flex-grow bg-slate-200"></div>
               </div>
-              <CategorySelection onSelect={handleCategoryClick} />
+              <CategorySelection 
+                categories={categories}
+                onSelect={handleCategoryClick} 
+              />
             </div>
           </div>
         )}
@@ -166,7 +195,10 @@ const App: React.FC = () => {
               <span className="text-xs font-black tracking-widest text-indigo-500 uppercase px-3 py-1 bg-indigo-50 rounded-full mb-3 inline-block">Selected Category</span>
               <h2 className="text-4xl font-black text-slate-900">{selectedCategory}</h2>
             </div>
-            <SubjectGrid onSelect={handleSubjectClick} />
+            <SubjectGrid 
+              subjects={subjects}
+              onSelect={handleSubjectClick} 
+            />
           </div>
         )}
 
@@ -176,7 +208,10 @@ const App: React.FC = () => {
             onLoginSuccess={() => setIsAdminLoggedIn(true)} 
             onLogout={() => setIsAdminLoggedIn(false)}
             files={files}
+            subjects={subjects}
+            categories={categories}
             onUpdateFiles={() => fetchFiles(true)}
+            onUpdateConfig={fetchConfig}
             onFileView={handleFileSelect}
           />
         )}
