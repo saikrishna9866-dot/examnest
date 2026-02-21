@@ -8,6 +8,7 @@ import CategorySelection from './components/CategorySelection';
 import SubjectGrid from './components/SubjectGrid';
 import AdminPanel from './components/AdminPanel';
 import FileActionModal from './components/FileActionModal';
+import PdfViewerModal from './components/PdfViewerModal';
 import SearchBar from './components/SearchBar';
 import RecentUploads from './components/RecentUploads';
 
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<AcademicFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [viewingFile, setViewingFile] = useState<AcademicFile | null>(null);
 
   // Quick initial load from Cache
   useEffect(() => {
@@ -90,7 +92,7 @@ const App: React.FC = () => {
   };
 
   const handleFileSelect = (file: AcademicFile) => {
-    window.open(file.fileUrl, '_blank');
+    setViewingFile(file);
   };
 
   return (
@@ -175,9 +177,17 @@ const App: React.FC = () => {
             onLogout={() => setIsAdminLoggedIn(false)}
             files={files}
             onUpdateFiles={() => fetchFiles(true)}
+            onFileView={handleFileSelect}
           />
         )}
       </main>
+
+      {viewingFile && (
+        <PdfViewerModal 
+          file={viewingFile} 
+          onClose={() => setViewingFile(null)} 
+        />
+      )}
 
       {selectedSubject && selectedCategory && (
         <FileActionModal 

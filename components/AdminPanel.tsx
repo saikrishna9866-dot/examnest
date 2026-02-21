@@ -9,9 +9,10 @@ interface AdminPanelProps {
   onLogout: () => void;
   files: AcademicFile[];
   onUpdateFiles: () => void;
+  onFileView: (file: AcademicFile) => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onLogout, files, onUpdateFiles }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onLogout, files, onUpdateFiles, onFileView }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -514,7 +515,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
                       <tr key={file.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-5">
                           <p className="font-bold text-slate-700">{file.fileName}</p>
-                          <a href={file.fileUrl} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-500 font-bold hover:underline">View File</a>
+                          <button 
+                            onClick={() => onFileView(file)}
+                            className="text-[10px] text-indigo-500 font-bold hover:underline"
+                          >
+                            View File
+                          </button>
                         </td>
                         <td className="p-5">
                           <div className="flex flex-col space-y-1">
