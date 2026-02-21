@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [files, setFiles] = useState<AcademicFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Quick initial load from Cache
   useEffect(() => {
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   // Fetch files from Supabase with background update
   const fetchFiles = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setLoading(true);
+    setFetchError(null);
     
     try {
       const { data, error } = await supabase
@@ -60,8 +62,9 @@ const App: React.FC = () => {
         // Persist for next fast load
         localStorage.setItem(CACHE_KEY, JSON.stringify(formattedFiles));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching files:', err);
+      setFetchError(err.message || 'Failed to connect to the database.');
     } finally {
       setLoading(false);
     }
@@ -99,7 +102,20 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8 max-w-6xl">
-        {loading && files.length === 0 && currentView !== 'ADMIN' && (
+        {fetchError && currentView !== 'ADMIN' && (
+          <div className="bg-red-50 border border-red-100 p-6 rounded-3xl text-center mb-8 animate-fade-in">
+            <p className="text-red-800 font-bold">Database Connection Issue</p>
+            <p className="text-red-600 text-sm mt-1">{fetchError}</p>
+            <button 
+              onClick={() => fetchFiles(true)}
+              className="mt-4 px-6 py-2 bg-red-600 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
+            >
+              Retry Connection
+            </button>
+          </div>
+        )}
+
+        {loading && files.length === 0 && currentView !== 'ADMIN' && !fetchError && (
           <div className="flex flex-col items-center justify-center py-32">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-slate-100 rounded-full"></div>

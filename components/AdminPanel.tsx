@@ -18,6 +18,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [storageStatus, setStorageStatus] = useState<'checking' | 'ok' | 'error' | 'idle'>('idle');
+
+  const checkStorage = async () => {
+    setStorageStatus('checking');
+    try {
+      // Try to list files in the bucket to check connectivity and existence
+      const { error } = await supabase.storage.from('resources').list('', { limit: 1 });
+      if (error) throw error;
+      setStorageStatus('ok');
+    } catch (err: any) {
+      console.error('Storage check failed:', err);
+      setStorageStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      checkStorage();
+    }
+  }, [isLoggedIn]);
 
   const handleLogout = () => {
     setUsername('');
@@ -60,6 +80,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
       return;
     }
 
+    // Limit file size to 50MB
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (selectedFile.size > MAX_SIZE) {
+      alert('File is too large. Maximum size allowed is 50MB.');
+      return;
+    }
+
     setIsUploading(true);
     try {
       const cleanName = selectedFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
@@ -73,6 +100,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
         });
 
       if (uploadError) {
+        if (uploadError.message === 'Failed to fetch') {
+          throw new Error('Storage Error: Failed to fetch. This usually means the Supabase "resources" bucket is missing, not public, or there is a CORS issue. Please ensure you have created a PUBLIC bucket named "resources" in your Supabase project.');
+        }
         throw new Error(`Storage Error: ${uploadError.message}`);
       }
 
@@ -203,7 +233,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
           <h2 className="text-3xl font-bold">Dashboard</h2>
           <div className="flex flex-col">
             <p className="text-indigo-400 font-medium tracking-wide">Artificial Intelligence Department</p>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Made By Team Alpha</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Made By Saikrishna tadi</p>
           </div>
         </div>
         <div className="mt-6 md:mt-0 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 relative z-10">
@@ -255,7 +285,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isLoggedIn, onLoginSuccess, onL
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
+          {storageStatus === 'error' && (
+            <div className="bg-red-50 border border-red-100 p-6 rounded-2xl animate-fade-in">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Storage Connection Error</h4>
+                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                    The app cannot connect to your Supabase storage. 
+                    <strong> Action Required:</strong> Create a <u>Public</u> bucket named <code className="bg-red-100 px-1 rounded">resources</code> in your Supabase dashboard.
+                  </p>
+                  <button 
+                    onClick={checkStorage}
+                    className="mt-3 text-[10px] font-black uppercase tracking-widest text-red-600 hover:underline"
+                  >
+                    Retry Connection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm sticky top-24">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
