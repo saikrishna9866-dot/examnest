@@ -7,10 +7,20 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
+  const [feedback, setFeedback] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedback.trim()) return;
+    const subject = encodeURIComponent("Feedback for Exam Nest");
+    const body = encodeURIComponent(feedback);
+    window.location.href = `mailto:examnest01@gmail.com?subject=${subject}&body=${body}`;
+  };
+
   return (
     <footer className="bg-slate-900 text-white mt-12 py-16">
       <div className="container mx-auto px-4 max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           
           {/* Categories Column */}
           <div>
@@ -33,6 +43,35 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* Feedback Column */}
+          <div>
+            <h3 className="text-xl font-bold mb-6 flex items-center">
+              <span className="w-1 h-6 bg-indigo-500 rounded-full mr-3"></span>
+              Feedback
+            </h3>
+            <p className="text-slate-400 text-sm mb-4 leading-relaxed">
+              Help us improve Exam Nest! Share your suggestions or report issues directly to our team.
+            </p>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <textarea 
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="Your feedback..."
+                className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all min-h-[100px] resize-none text-xs"
+                required
+              ></textarea>
+              <button 
+                type="submit"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center space-x-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span>Submit</span>
+              </button>
+            </form>
           </div>
 
           {/* About Admin Column */}
