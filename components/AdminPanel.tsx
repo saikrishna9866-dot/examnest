@@ -492,6 +492,26 @@ CREATE TABLE IF NOT EXISTS categories (
                       </pre>
                     </div>
                   </div>
+
+                  <div className="flex space-x-6">
+                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">5</div>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-lg mb-2">Add Storage Policies</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        Go to <strong>Storage → Policies</strong>. Click "New Policy" for the <strong>resources</strong> bucket:
+                      </p>
+                      <ul className="mt-3 space-y-3">
+                        <li className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <p className="text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Policy 1: Public Access</p>
+                          <p className="text-[11px] text-slate-500">Choose "Get started quickly" → "Give users access to all files" → "SELECT" → "Public".</p>
+                        </li>
+                        <li className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <p className="text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Policy 2: Upload Access</p>
+                          <p className="text-[11px] text-slate-500">Choose "Get started quickly" → "Give users access to all files" → "INSERT" → "Public".</p>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-12 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
