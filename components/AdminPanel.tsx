@@ -82,7 +82,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // Dynamic Config State
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingItem, setEditingItem] = useState<{ type: 'SUBJECT' | 'CATEGORY', oldName: string, newName: string } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ type: 'SUBJECT' | 'CATEGORY' | 'FILE', oldName: string, newName: string, id?: string } | null>(null);
 
   useEffect(() => {
     if (subjects.length > 0 && !newFileSubject) setNewFileSubject(subjects[0]);
@@ -246,14 +246,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleRenameConfig = async () => {
     if (!editingItem || !editingItem.newName.trim()) return;
-    const table = editingItem.type === 'SUBJECT' ? 'subjects' : 'categories';
+    
     try {
-      const { error } = await supabase.from(table).update({ name: editingItem.newName.trim() }).eq('name', editingItem.oldName);
-      if (error) throw error;
-      
-      // Also update academic_files to maintain consistency
-      const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
-      await supabase.from('academic_files').update({ [column]: editingItem.newName.trim() }).eq(column, editingItem.oldName);
+      if (editingItem.type === 'FILE') {
+        if (!editingItem.id) return;
+        const { error } = await supabase
+          .from('academic_files')
+          .update({ file_name: editingItem.newName.trim() })
+          .eq('id', editingItem.id);
+        if (error) throw error;
+      } else {
+        const table = editingItem.type === 'SUBJECT' ? 'subjects' : 'categories';
+        const { error } = await supabase.from(table).update({ name: editingItem.newName.trim() }).eq('name', editingItem.oldName);
+        if (error) throw error;
+        
+        // Also update academic_files to maintain consistency
+        const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
+        await supabase.from('academic_files').update({ [column]: editingItem.newName.trim() }).eq(column, editingItem.oldName);
+      }
       
       setEditingItem(null);
       onUpdateConfig();
@@ -730,7 +740,18 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                     files.map((file) => (
                       <tr key={file.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-5">
-                          <p className="font-bold text-slate-700">{file.fileName}</p>
+                          <div className="flex items-center group/name">
+                            <p className="font-bold text-slate-700">{file.fileName}</p>
+                            <button 
+                              onClick={() => setEditingItem({ type: 'FILE', oldName: file.fileName, newName: file.fileName, id: file.id })}
+                              className="ml-2 opacity-0 group-hover/name:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-all"
+                              title="Rename File"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                          </div>
                           <button 
                             onClick={() => onFileView(file)}
                             className="text-[10px] text-indigo-500 font-bold hover:underline"
@@ -740,8 +761,30 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                         </td>
                         <td className="p-5">
                           <div className="flex flex-col space-y-1">
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md w-fit">{file.category}</span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit">{file.subject}</span>
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md w-fit flex items-center group/cat">
+                              {file.category}
+                              <button 
+                                onClick={() => setEditingItem({ type: 'CATEGORY', oldName: file.category, newName: file.category })}
+                                className="ml-1.5 opacity-0 group-hover/cat:opacity-100 hover:text-indigo-600 transition-all"
+                                title="Rename Category Globally"
+                              >
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit flex items-center group/sub">
+                              {file.subject}
+                              <button 
+                                onClick={() => setEditingItem({ type: 'SUBJECT', oldName: file.subject, newName: file.subject })}
+                                className="ml-1.5 opacity-0 group-hover/sub:opacity-100 hover:text-indigo-600 transition-all"
+                                title="Rename Subject Globally"
+                              >
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </td>
                         <td className="p-5 text-right">
@@ -863,7 +906,11 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
           <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl animate-scale-up border border-slate-100">
             <h3 className="text-2xl font-black text-slate-900 mb-2">Rename {editingItem.type}</h3>
-            <p className="text-slate-500 mb-6 font-medium">Changing this will update all existing files associated with it.</p>
+            <p className="text-slate-500 mb-6 font-medium">
+              {editingItem.type === 'FILE' 
+                ? 'Update the display title for this document.' 
+                : 'Changing this will update all existing files associated with it.'}
+            </p>
             <input 
               type="text" 
               value={editingItem.newName}
