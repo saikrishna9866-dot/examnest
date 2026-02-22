@@ -14,7 +14,14 @@ const Footer: React.FC<FooterProps> = ({ onCategoryClick }) => {
     if (!feedback.trim()) return;
     const subject = encodeURIComponent("Feedback for Exam Nest");
     const body = encodeURIComponent(feedback);
-    window.location.href = `mailto:examnest01@gmail.com?subject=${subject}&body=${body}`;
+    const recipient = "examnest01@gmail.com";
+    
+    // Use Gmail's direct compose URL to ensure it opens in Gmail
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${recipient}&su=${subject}&body=${body}`;
+    
+    // Open in a new tab
+    window.open(gmailUrl, '_blank');
+    setFeedback('');
   };
 
   return (

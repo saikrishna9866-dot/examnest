@@ -495,13 +495,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
 
                   <div className="flex space-x-6">
-                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">4</div>
-                    <div>
-                      <h4 className="font-black text-slate-800 text-lg mb-2">Create Database Tables</h4>
-                      <p className="text-sm text-slate-600 leading-relaxed">
-                        If you see a "Schema Cache" error, it means these tables are missing. Go to <strong>SQL Editor</strong> and run this query:
+                    <div className="flex-shrink-0 w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center font-black">4</div>
+                    <div className="flex-1">
+                      <h4 className="font-black text-slate-800 text-lg mb-2">CRITICAL: Create Database Tables</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                        The "Schema Cache" error means your database is empty. I cannot do this for you, but you can do it in 30 seconds:
                       </p>
-                      <pre className="mt-3 p-4 bg-slate-900 text-indigo-300 rounded-xl text-[10px] font-mono overflow-x-auto">
+                      
+                      <div className="space-y-4">
+                        <a 
+                          href="https://supabase.com/dashboard/project/ygylsbivacokhooqzsqe/sql/new" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center space-x-2 w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          <span>1. Open My Supabase SQL Editor</span>
+                        </a>
+
+                        <div className="relative group">
+                          <pre className="p-4 bg-slate-900 text-indigo-300 rounded-xl text-[10px] font-mono overflow-x-auto max-h-[300px] border border-slate-800">
 {`-- 1. Create Academic Files table
 CREATE TABLE IF NOT EXISTS academic_files (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -528,15 +543,29 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 4. Enable RLS (Row Level Security) - Optional but recommended
--- For simplicity in this demo, we allow all access
+-- 4. Enable Public Access
 ALTER TABLE academic_files ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access" ON academic_files FOR ALL USING (true);
 ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access" ON subjects FOR ALL USING (true);
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
-                      </pre>
+                          </pre>
+                          <button 
+                            onClick={() => {
+                              const sql = `-- 1. Create Academic Files table\nCREATE TABLE IF NOT EXISTS academic_files (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  subject TEXT NOT NULL,\n  category TEXT NOT NULL,\n  file_name TEXT NOT NULL,\n  file_url TEXT NOT NULL,\n  storage_path TEXT NOT NULL,\n  upload_date DATE DEFAULT CURRENT_DATE,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 2. Create Subjects table\nCREATE TABLE IF NOT EXISTS subjects (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  name TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 3. Create Categories table\nCREATE TABLE IF NOT EXISTS categories (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  name TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 4. Enable Public Access\nALTER TABLE academic_files ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow all access" ON academic_files FOR ALL USING (true);\nALTER TABLE subjects ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow all access" ON subjects FOR ALL USING (true);\nALTER TABLE categories ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`;
+                              navigator.clipboard.writeText(sql);
+                              alert('SQL Copied! Now paste it in the Supabase tab you just opened and click RUN.');
+                            }}
+                            className="absolute top-2 right-2 bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg"
+                          >
+                            2. Copy All SQL
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
+                          3. Paste in Supabase & Click "RUN"
+                        </p>
+                      </div>
                     </div>
                   </div>
 
