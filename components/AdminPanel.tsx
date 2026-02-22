@@ -34,24 +34,38 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [storageStatus, setStorageStatus] = useState<'checking' | 'ok' | 'error' | 'idle'>('idle');
+  const [dbStatus, setDbStatus] = useState<'checking' | 'ok' | 'error' | 'idle'>('idle');
   const [showSetupGuide, setShowSetupGuide] = useState(false);
 
-  const checkStorage = async () => {
+  const checkConnection = async () => {
     setStorageStatus('checking');
+    setDbStatus('checking');
     try {
-      // Try to list files in the bucket to check connectivity and existence
-      const { error } = await supabase.storage.from('resources').list('', { limit: 1 });
-      if (error) throw error;
+      // Check Storage
+      const { error: storageError } = await supabase.storage.from('resources').list('', { limit: 1 });
+      if (storageError) throw storageError;
       setStorageStatus('ok');
+
+      // Check Database Tables
+      const { error: dbError } = await supabase.from('subjects').select('count', { count: 'exact', head: true });
+      if (dbError) {
+        if (dbError.message.includes('schema cache') || dbError.message.includes('does not exist')) {
+          setDbStatus('error');
+        } else {
+          throw dbError;
+        }
+      } else {
+        setDbStatus('ok');
+      }
     } catch (err: any) {
-      console.error('Storage check failed:', err);
+      console.error('Connection check failed:', err);
       setStorageStatus('error');
     }
   };
 
   useEffect(() => {
     if (isLoggedIn) {
-      checkStorage();
+      checkConnection();
     }
   }, [isLoggedIn]);
 
@@ -115,19 +129,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
     setIsUploading(true);
     try {
-      const cleanName = selectedFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
-      const filePath = `${Date.now()}_${cleanName}`;
+      // Robust filename for mobile
+      const timestamp = Date.now();
+      const originalName = selectedFile.name || 'document.pdf';
+      const cleanName = originalName.replace(/[^a-zA-Z0-9.]/g, '_');
+      const filePath = `${timestamp}_${cleanName}`;
+
+      console.log('Starting upload:', { filePath, size: selectedFile.size, type: selectedFile.type });
 
       const { error: uploadError } = await supabase.storage
         .from('resources')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
-          upsert: true
+          upsert: false // Changed to false for better reliability on mobile retries
         });
 
       if (uploadError) {
+        console.error('Supabase Storage Error:', uploadError);
         if (uploadError.message === 'Failed to fetch') {
-          throw new Error('Storage Error: Failed to fetch. This usually means the Supabase "resources" bucket is missing, not public, or there is a CORS issue. Please ensure you have created a PUBLIC bucket named "resources" in your Supabase project.');
+          throw new Error('Network Error: Failed to fetch. This usually means a CORS issue or the "resources" bucket is not PUBLIC. Please check your Supabase Storage settings.');
         }
         throw new Error(`Storage Error: ${uploadError.message}`);
       }
@@ -385,7 +405,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'FILES' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            {storageStatus === 'error' && (
+            {(storageStatus === 'error' || dbStatus === 'error') && (
             <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] animate-fade-in shadow-xl shadow-amber-900/5">
               <div className="flex items-start space-x-4">
                 <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
@@ -394,9 +414,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-lg font-black text-amber-900 uppercase tracking-tight leading-none mb-2">Storage Setup Required</h4>
+                  <h4 className="text-lg font-black text-amber-900 uppercase tracking-tight leading-none mb-2">
+                    {dbStatus === 'error' ? 'Database Setup Required' : 'Storage Setup Required'}
+                  </h4>
                   <p className="text-sm text-amber-800 leading-relaxed mb-4">
-                    Your Supabase project is connected, but the <strong>Storage Bucket</strong> is not configured correctly.
+                    {dbStatus === 'error' 
+                      ? 'The database tables are missing. You need to run the SQL query to create them.'
+                      : 'Your Supabase project is connected, but the Storage Bucket is not configured correctly.'}
                   </p>
                   <button 
                     onClick={() => setShowSetupGuide(true)}
@@ -405,7 +429,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     Open Setup Guide
                   </button>
                   <button 
-                    onClick={checkStorage}
+                    onClick={checkConnection}
                     className="w-full mt-2 text-[10px] font-black uppercase tracking-widest text-amber-600 hover:underline"
                   >
                     Retry Connection
@@ -475,20 +499,43 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div>
                       <h4 className="font-black text-slate-800 text-lg mb-2">Create Database Tables</h4>
                       <p className="text-sm text-slate-600 leading-relaxed">
-                        Go to <strong>SQL Editor</strong> and run this query to enable dynamic subjects and categories:
+                        If you see a "Schema Cache" error, it means these tables are missing. Go to <strong>SQL Editor</strong> and run this query:
                       </p>
                       <pre className="mt-3 p-4 bg-slate-900 text-indigo-300 rounded-xl text-[10px] font-mono overflow-x-auto">
-{`CREATE TABLE IF NOT EXISTS subjects (
+{`-- 1. Create Academic Files table
+CREATE TABLE IF NOT EXISTS academic_files (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  subject TEXT NOT NULL,
+  category TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
+  upload_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Create Subjects table
+CREATE TABLE IF NOT EXISTS subjects (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 3. Create Categories table
 CREATE TABLE IF NOT EXISTS categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
-);`}
+);
+
+-- 4. Enable RLS (Row Level Security) - Optional but recommended
+-- For simplicity in this demo, we allow all access
+ALTER TABLE academic_files ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access" ON academic_files FOR ALL USING (true);
+ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access" ON subjects FOR ALL USING (true);
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                       </pre>
                     </div>
                   </div>
@@ -523,7 +570,7 @@ CREATE TABLE IF NOT EXISTS categories (
                 <button 
                   onClick={() => {
                     setShowSetupGuide(false);
-                    checkStorage();
+                    checkConnection();
                   }}
                   className="w-full mt-8 bg-slate-900 text-white py-5 rounded-2xl font-black hover:bg-indigo-600 transition-all shadow-xl"
                 >
