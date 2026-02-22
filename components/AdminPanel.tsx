@@ -261,17 +261,31 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         if (error) throw error;
       } else {
         const table = editingItem.type === 'SUBJECT' ? 'subjects' : 'categories';
+        const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
         
-        // 1. Update the config table
-        const { error: configError } = await supabase
+        // 1. Check if the item exists in the database
+        const { data: existing } = await supabase
           .from(table)
-          .update({ name: newName })
-          .eq('name', oldName);
-        
-        if (configError) throw configError;
+          .select('name')
+          .eq('name', oldName)
+          .single();
+
+        if (!existing) {
+          // If it doesn't exist (it's a default from code), create it with the NEW name
+          const { error: insertError } = await supabase
+            .from(table)
+            .insert([{ name: newName }]);
+          if (insertError) throw insertError;
+        } else {
+          // If it exists, update it
+          const { error: configError } = await supabase
+            .from(table)
+            .update({ name: newName })
+            .eq('name', oldName);
+          if (configError) throw configError;
+        }
         
         // 2. Update all files that use this config
-        const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
         const { error: filesError } = await supabase
           .from('academic_files')
           .update({ [column]: newName })
@@ -286,7 +300,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert('Changes saved successfully!');
     } catch (err: any) {
       console.error('Rename operation failed:', err);
-      alert(`Update Failed: ${err.message}`);
+      alert(`Update Failed: ${err.message}. Make sure you have run the SQL setup code in Supabase.`);
     }
   };
 
