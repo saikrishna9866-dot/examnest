@@ -247,29 +247,46 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleRenameConfig = async () => {
     if (!editingItem || !editingItem.newName.trim()) return;
     
+    const newName = editingItem.newName.trim();
+    const oldName = editingItem.oldName;
+    
     try {
       if (editingItem.type === 'FILE') {
         if (!editingItem.id) return;
         const { error } = await supabase
           .from('academic_files')
-          .update({ file_name: editingItem.newName.trim() })
+          .update({ file_name: newName })
           .eq('id', editingItem.id);
+        
         if (error) throw error;
       } else {
         const table = editingItem.type === 'SUBJECT' ? 'subjects' : 'categories';
-        const { error } = await supabase.from(table).update({ name: editingItem.newName.trim() }).eq('name', editingItem.oldName);
-        if (error) throw error;
         
-        // Also update academic_files to maintain consistency
+        // 1. Update the config table
+        const { error: configError } = await supabase
+          .from(table)
+          .update({ name: newName })
+          .eq('name', oldName);
+        
+        if (configError) throw configError;
+        
+        // 2. Update all files that use this config
         const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
-        await supabase.from('academic_files').update({ [column]: editingItem.newName.trim() }).eq(column, editingItem.oldName);
+        const { error: filesError } = await supabase
+          .from('academic_files')
+          .update({ [column]: newName })
+          .eq(column, oldName);
+          
+        if (filesError) throw filesError;
       }
       
       setEditingItem(null);
-      onUpdateConfig();
-      onUpdateFiles();
+      await onUpdateConfig();
+      await onUpdateFiles();
+      alert('Changes saved successfully!');
     } catch (err: any) {
-      alert(`Error renaming: ${err.message}`);
+      console.error('Rename operation failed:', err);
+      alert(`Update Failed: ${err.message}`);
     }
   };
 
@@ -740,11 +757,11 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                     files.map((file) => (
                       <tr key={file.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-5">
-                          <div className="flex items-center group/name">
+                          <div className="flex items-center">
                             <p className="font-bold text-slate-700">{file.fileName}</p>
                             <button 
                               onClick={() => setEditingItem({ type: 'FILE', oldName: file.fileName, newName: file.fileName, id: file.id })}
-                              className="ml-2 opacity-0 group-hover/name:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-all"
+                              className="ml-2 p-1 text-slate-400 hover:text-indigo-600 transition-all"
                               title="Rename File"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -761,11 +778,11 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                         </td>
                         <td className="p-5">
                           <div className="flex flex-col space-y-1">
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md w-fit flex items-center group/cat">
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md w-fit flex items-center">
                               {file.category}
                               <button 
                                 onClick={() => setEditingItem({ type: 'CATEGORY', oldName: file.category, newName: file.category })}
-                                className="ml-1.5 opacity-0 group-hover/cat:opacity-100 hover:text-indigo-600 transition-all"
+                                className="ml-1.5 text-indigo-300 hover:text-indigo-600 transition-all"
                                 title="Rename Category Globally"
                               >
                                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -773,11 +790,11 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                                 </svg>
                               </button>
                             </span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit flex items-center group/sub">
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit flex items-center">
                               {file.subject}
                               <button 
                                 onClick={() => setEditingItem({ type: 'SUBJECT', oldName: file.subject, newName: file.subject })}
-                                className="ml-1.5 opacity-0 group-hover/sub:opacity-100 hover:text-indigo-600 transition-all"
+                                className="ml-1.5 text-slate-300 hover:text-indigo-600 transition-all"
                                 title="Rename Subject Globally"
                               >
                                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -788,15 +805,28 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                           </div>
                         </td>
                         <td className="p-5 text-right">
-                          <button 
-                            onClick={() => handleDeleteFile(file)} 
-                            className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                            title="Delete Resource"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          <div className="flex justify-end space-x-2">
+                            <button 
+                              onClick={() => handleDeleteFile(file)} 
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-[10px] font-bold uppercase tracking-widest"
+                              title="Delete Resource"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                            <button 
+                              onClick={() => setEditingItem({ type: 'FILE', oldName: file.fileName, newName: file.fileName, id: file.id })}
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-[10px] font-bold uppercase tracking-widest"
+                              title="Rename Resource"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                              <span>Rename</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
