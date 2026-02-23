@@ -245,6 +245,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleImportDefaults = async () => {
+    if (dbStatus === 'error') {
+      setShowSetupGuide(true);
+      return;
+    }
     if (!confirm('This will copy all default subjects and sections into your database. Continue?')) return;
     
     setIsUploading(true);
@@ -252,7 +256,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       // 1. Insert subjects
       const subjectInserts = SUBJECTS.map(name => ({ name }));
       const { error: subError } = await supabase.from('subjects').upsert(subjectInserts, { onConflict: 'name' });
-      if (subError) throw subError;
+      
+      if (subError) {
+        if (subError.message.includes('schema cache') || subError.message.includes('does not exist')) {
+          setDbStatus('error');
+          setShowSetupGuide(true);
+          throw new Error('Database tables not found. Please follow the Setup Guide first.');
+        }
+        throw subError;
+      }
 
       // 2. Insert categories
       const categoryInserts = CATEGORIES.map(name => ({ name }));
@@ -296,11 +308,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
         
         // 1. Check if the item exists in the database
-        const { data: existing } = await supabase
+        const { data: existing, error: fetchError } = await supabase
           .from(table)
           .select('name')
           .eq('name', oldName)
           .single();
+
+        if (fetchError && (fetchError.message.includes('schema cache') || fetchError.message.includes('does not exist'))) {
+          setDbStatus('error');
+          setShowSetupGuide(true);
+          throw new Error('Database tables not found. Please follow the Setup Guide first.');
+        }
 
         if (!existing) {
           // If it doesn't exist (it's a default from code), create it with the NEW name
@@ -333,7 +351,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert('Changes saved successfully!');
     } catch (err: any) {
       console.error('Rename operation failed:', err);
-      alert(`Update Failed: ${err.message}.`);
+      alert(`Update Failed: ${err.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -898,8 +916,12 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
               </p>
               <button 
                 onClick={handleImportDefaults}
-                disabled={isUploading}
-                className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-lg flex items-center space-x-2"
+                disabled={isUploading || dbStatus === 'error'}
+                className={`px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center space-x-2 ${
+                  dbStatus === 'error' 
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                    : 'bg-white text-indigo-600 hover:bg-indigo-50'
+                }`}
               >
                 {isUploading ? (
                   <div className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -908,8 +930,13 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
                   </svg>
                 )}
-                <span>Import Defaults to Database</span>
+                <span>{dbStatus === 'error' ? 'Setup Required' : 'Import Defaults to Database'}</span>
               </button>
+              {dbStatus === 'error' && (
+                <p className="text-[10px] text-indigo-200 mt-2 font-bold uppercase tracking-wider">
+                  Please complete the SQL setup above before importing.
+                </p>
+              )}
             </div>
           </div>
 
