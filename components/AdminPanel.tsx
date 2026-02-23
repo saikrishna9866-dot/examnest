@@ -244,25 +244,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleSyncDefaults = async () => {
-    if (!confirm('This will populate your database with the default subjects and categories. Continue?')) return;
+  const handleImportDefaults = async () => {
+    if (!confirm('This will copy all default subjects and sections into your database. Continue?')) return;
+    
+    setIsUploading(true);
     try {
-      const { error: subError } = await supabase.from('subjects').upsert(
-        SUBJECTS.map(name => ({ name })),
-        { onConflict: 'name' }
-      );
+      // 1. Insert subjects
+      const subjectInserts = SUBJECTS.map(name => ({ name }));
+      const { error: subError } = await supabase.from('subjects').upsert(subjectInserts, { onConflict: 'name' });
       if (subError) throw subError;
 
-      const { error: catError } = await supabase.from('categories').upsert(
-        CATEGORIES.map(name => ({ name })),
-        { onConflict: 'name' }
-      );
+      // 2. Insert categories
+      const categoryInserts = CATEGORIES.map(name => ({ name }));
+      const { error: catError } = await supabase.from('categories').upsert(categoryInserts, { onConflict: 'name' });
       if (catError) throw catError;
 
-      alert('Database synced with defaults successfully!');
-      onUpdateConfig();
+      alert('Defaults imported successfully! Your database is now the source of truth.');
+      await onUpdateConfig();
+      await checkConnection();
     } catch (err: any) {
-      alert(`Sync failed: ${err.message}`);
+      console.error('Import failed:', err);
+      alert(`Import Failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -272,6 +276,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     const newName = editingItem.newName.trim();
     const oldName = editingItem.oldName;
     
+    if (newName === oldName) {
+      setEditingItem(null);
+      return;
+    }
+    
+    setIsUploading(true);
     try {
       if (editingItem.type === 'FILE') {
         if (!editingItem.id) return;
@@ -286,16 +296,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
         
         // 1. Check if the item exists in the database
-        const { data: existing, error: fetchError } = await supabase
+        const { data: existing } = await supabase
           .from(table)
           .select('name')
           .eq('name', oldName)
-          .maybeSingle();
-
-        if (fetchError) throw fetchError;
+          .single();
 
         if (!existing) {
           // If it doesn't exist (it's a default from code), create it with the NEW name
+          // This effectively "renames" it by making the new name the one in the DB
           const { error: insertError } = await supabase
             .from(table)
             .insert([{ name: newName }]);
@@ -324,7 +333,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert('Changes saved successfully!');
     } catch (err: any) {
       console.error('Rename operation failed:', err);
-      alert(`Update Failed: ${err.message}. Make sure you have run the SQL setup code in Supabase.`);
+      alert(`Update Failed: ${err.message}.`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -876,21 +887,39 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
         </div>
       </div>
     ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
-          {/* Subjects Management */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-slate-900 flex items-center">
-                <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
-                Manage Subjects
-              </h3>
+        <div className="grid grid-cols-1 gap-8 animate-fade-in">
+          {/* Quick Setup / Sync Defaults */}
+          <div className="bg-indigo-600 text-white p-8 rounded-[2.5rem] shadow-xl shadow-indigo-200 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            <div className="relative z-10">
+              <h3 className="text-2xl font-black mb-2">Database Synchronization</h3>
+              <p className="text-indigo-100 mb-6 max-w-2xl">
+                To make subjects and sections fully editable and permanent, you should import the default structure into your database. This fixes the issue where renamed subjects might still show their old names.
+              </p>
               <button 
-                onClick={handleSyncDefaults}
-                className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-all uppercase tracking-widest"
+                onClick={handleImportDefaults}
+                disabled={isUploading}
+                className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-lg flex items-center space-x-2"
               >
-                Sync Defaults
+                {isUploading ? (
+                  <div className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
+                  </svg>
+                )}
+                <span>Import Defaults to Database</span>
               </button>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Subjects Management */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center">
+              <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
+              Manage Subjects
+            </h3>
             <form onSubmit={handleAddSubject} className="flex space-x-2 mb-8">
               <input 
                 type="text" 
@@ -905,9 +934,9 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
             </form>
             <div className="space-y-3">
               {subjects.map(sub => (
-                <div key={sub} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
+                <div key={sub} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
                   <span className="font-bold text-slate-700">{sub}</span>
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                       onClick={() => setEditingItem({ type: 'SUBJECT', oldName: sub, newName: sub })}
                       className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
@@ -950,9 +979,9 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
             </form>
             <div className="space-y-3">
               {categories.map(cat => (
-                <div key={cat} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
+                <div key={cat} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
                   <span className="font-bold text-slate-700">{cat}</span>
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                       onClick={() => setEditingItem({ type: 'CATEGORY', oldName: cat, newName: cat })}
                       className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
@@ -975,6 +1004,7 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Rename Modal */}

@@ -31,18 +31,14 @@ const App: React.FC = () => {
       const { data: subData } = await supabase.from('subjects').select('name').order('name');
       const { data: catData } = await supabase.from('categories').select('name').order('name');
 
-      if (subData) {
-        const dbSubjects = subData.map(s => s.name);
-        const mergedSubjects = Array.from(new Set([...dbSubjects, ...DEFAULT_SUBJECTS])).sort();
-        setSubjects(mergedSubjects);
+      if (subData && subData.length > 0) {
+        setSubjects(subData.map(s => s.name));
       } else {
         setSubjects(DEFAULT_SUBJECTS);
       }
 
-      if (catData) {
-        const dbCategories = catData.map(c => c.name);
-        const mergedCategories = Array.from(new Set([...dbCategories, ...DEFAULT_CATEGORIES])).sort();
-        setCategories(mergedCategories);
+      if (catData && catData.length > 0) {
+        setCategories(catData.map(c => c.name));
       } else {
         setCategories(DEFAULT_CATEGORIES);
       }
