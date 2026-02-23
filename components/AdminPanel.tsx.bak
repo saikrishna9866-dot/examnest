@@ -244,6 +244,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleSyncDefaults = async () => {
+    if (!confirm('This will populate your database with the default subjects and categories. Continue?')) return;
+    try {
+      const { error: subError } = await supabase.from('subjects').upsert(
+        SUBJECTS.map(name => ({ name })),
+        { onConflict: 'name' }
+      );
+      if (subError) throw subError;
+
+      const { error: catError } = await supabase.from('categories').upsert(
+        CATEGORIES.map(name => ({ name })),
+        { onConflict: 'name' }
+      );
+      if (catError) throw catError;
+
+      alert('Database synced with defaults successfully!');
+      onUpdateConfig();
+    } catch (err: any) {
+      alert(`Sync failed: ${err.message}`);
+    }
+  };
+
   const handleRenameConfig = async () => {
     if (!editingItem || !editingItem.newName.trim()) return;
     
@@ -264,11 +286,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
         
         // 1. Check if the item exists in the database
-        const { data: existing } = await supabase
+        const { data: existing, error: fetchError } = await supabase
           .from(table)
           .select('name')
           .eq('name', oldName)
-          .single();
+          .maybeSingle();
+
+        if (fetchError) throw fetchError;
 
         if (!existing) {
           // If it doesn't exist (it's a default from code), create it with the NEW name
@@ -855,10 +879,18 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
           {/* Subjects Management */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center">
-              <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
-              Manage Subjects
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-900 flex items-center">
+                <span className="w-2 h-2 bg-indigo-600 rounded-full mr-3"></span>
+                Manage Subjects
+              </h3>
+              <button 
+                onClick={handleSyncDefaults}
+                className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-all uppercase tracking-widest"
+              >
+                Sync Defaults
+              </button>
+            </div>
             <form onSubmit={handleAddSubject} className="flex space-x-2 mb-8">
               <input 
                 type="text" 
@@ -873,9 +905,9 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
             </form>
             <div className="space-y-3">
               {subjects.map(sub => (
-                <div key={sub} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                <div key={sub} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
                   <span className="font-bold text-slate-700">{sub}</span>
-                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex space-x-1">
                     <button 
                       onClick={() => setEditingItem({ type: 'SUBJECT', oldName: sub, newName: sub })}
                       className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
@@ -918,9 +950,9 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
             </form>
             <div className="space-y-3">
               {categories.map(cat => (
-                <div key={cat} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                <div key={cat} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
                   <span className="font-bold text-slate-700">{cat}</span>
-                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex space-x-1">
                     <button 
                       onClick={() => setEditingItem({ type: 'CATEGORY', oldName: cat, newName: cat })}
                       className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
