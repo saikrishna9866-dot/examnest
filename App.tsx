@@ -31,7 +31,6 @@ const App: React.FC = () => {
       const { data: subData } = await supabase.from('subjects').select('name').order('name');
       const { data: catData } = await supabase.from('categories').select('name').order('name');
 
-      // Use database as source of truth if it has data, otherwise fallback to defaults
       if (subData && subData.length > 0) {
         setSubjects(subData.map(s => s.name));
       } else {
@@ -43,7 +42,6 @@ const App: React.FC = () => {
       } else {
         setCategories(DEFAULT_CATEGORIES);
       }
-
     } catch (err) {
       console.error('Error fetching config:', err);
       setSubjects(DEFAULT_SUBJECTS);
@@ -58,7 +56,7 @@ const App: React.FC = () => {
       try {
         const parsed = JSON.parse(cached);
         setFiles(parsed);
-        setLoading(false);
+        setLoading(false); // Immediate transition if we have cache
       } catch (e) {
         console.error("Cache parsing error", e);
       }
@@ -67,11 +65,7 @@ const App: React.FC = () => {
 
   // Fetch files from Supabase with background update
   const fetchFiles = useCallback(async (isManualRefresh = false) => {
-    if (isManualRefresh) {
-      setLoading(true);
-      // Clear cache on manual refresh to ensure fresh data
-      localStorage.removeItem(CACHE_KEY);
-    }
+    if (isManualRefresh) setLoading(true);
     setFetchError(null);
     
     try {
@@ -92,6 +86,7 @@ const App: React.FC = () => {
           uploadDate: new Date(item.created_at).toLocaleDateString()
         }));
         setFiles(formattedFiles);
+        // Persist for next fast load
         localStorage.setItem(CACHE_KEY, JSON.stringify(formattedFiles));
       }
     } catch (err: any) {
