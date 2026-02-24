@@ -169,8 +169,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         }]);
 
       if (dbError) {
-        console.error('Database Insert Error:', dbError);
-        throw new Error(`Database Error: ${dbError.message}. Details: ${dbError.details || 'None'}. Hint: ${dbError.hint || 'None'}`);
+        throw new Error(`Database Error: ${dbError.message}`);
       }
 
       alert('File uploaded successfully!');
@@ -182,9 +181,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
     } catch (err: any) {
       console.error('Upload Process Failed:', err);
-      // More descriptive error for mobile users
-      const errorMsg = err.message || 'An unexpected error occurred during upload.';
-      alert(`Upload Failed!\n\n${errorMsg}\n\nIf this is a "Database Error", please ensure you have run the SQL setup in Supabase and that your mobile device has a stable internet connection.`);
+      alert(err.message || 'An unexpected error occurred during upload.');
     } finally {
       setIsUploading(false);
     }
@@ -248,10 +245,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleImportDefaults = async () => {
-    if (dbStatus === 'error') {
-      setShowSetupGuide(true);
-      return;
-    }
     if (!confirm('This will copy all default subjects and sections into your database. Continue?')) return;
     
     setIsUploading(true);
@@ -259,15 +252,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       // 1. Insert subjects
       const subjectInserts = SUBJECTS.map(name => ({ name }));
       const { error: subError } = await supabase.from('subjects').upsert(subjectInserts, { onConflict: 'name' });
-      
-      if (subError) {
-        if (subError.message.includes('schema cache') || subError.message.includes('does not exist')) {
-          setDbStatus('error');
-          setShowSetupGuide(true);
-          throw new Error('Database tables not found. Please follow the Setup Guide first.');
-        }
-        throw subError;
-      }
+      if (subError) throw subError;
 
       // 2. Insert categories
       const categoryInserts = CATEGORIES.map(name => ({ name }));
@@ -291,6 +276,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     const newName = editingItem.newName.trim();
     const oldName = editingItem.oldName;
     
+    if (newName === oldName) {
+      setEditingItem(null);
+      return;
+    }
+    
     setIsUploading(true);
     try {
       if (editingItem.type === 'FILE') {
@@ -306,39 +296,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         const column = editingItem.type === 'SUBJECT' ? 'subject' : 'category';
         
         // 1. Check if the item exists in the database
-        const { data: existing, error: fetchError } = await supabase
+        const { data: existing } = await supabase
           .from(table)
           .select('name')
           .eq('name', oldName)
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116' && (fetchError.message.includes('schema cache') || fetchError.message.includes('does not exist'))) {
-          setDbStatus('error');
-          setShowSetupGuide(true);
-          throw new Error('Database tables not found. Please follow the Setup Guide first.');
-        }
-
         if (!existing) {
-          // If it doesn't exist (it's a default from code), import all defaults first
-          // to prevent the "vanishing subjects" bug
-          const { data: allDbItems } = await supabase.from(table).select('name').limit(1);
-          
-          if (!allDbItems || allDbItems.length === 0) {
-            const itemsToImport = (editingItem.type === 'SUBJECT' ? SUBJECTS : CATEGORIES).map(name => ({ name }));
-            await supabase.from(table).upsert(itemsToImport, { onConflict: 'name' });
-          }
-
-          // Now perform the rename/upsert
+          // If it doesn't exist (it's a default from code), create it with the NEW name
+          // This effectively "renames" it by making the new name the one in the DB
           const { error: insertError } = await supabase
             .from(table)
-            .upsert([{ name: newName }], { onConflict: 'name' });
-          
+            .insert([{ name: newName }]);
           if (insertError) throw insertError;
-          
-          // Delete old one if it was a different name and we just imported it
-          if (newName !== oldName) {
-            await supabase.from(table).delete().eq('name', oldName);
-          }
         } else {
           // If it exists, update it
           const { error: configError } = await supabase
@@ -348,37 +318,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           if (configError) throw configError;
         }
         
-        // 2. Update all files that use this config (Global Update)
-        if (newName !== oldName) {
-          const { error: filesError } = await supabase
-            .from('academic_files')
-            .update({ [column]: newName })
-            .eq(column, oldName);
-            
-          if (filesError) throw filesError;
-        }
+        // 2. Update all files that use this config
+        const { error: filesError } = await supabase
+          .from('academic_files')
+          .update({ [column]: newName })
+          .eq(column, oldName);
+          
+        if (filesError) throw filesError;
       }
       
       setEditingItem(null);
       await onUpdateConfig();
       await onUpdateFiles();
-      
-      // Force fresh fetch on all devices
-      localStorage.removeItem('exam_nest_files_cache');
-      
-      alert('Changes saved successfully! The update has been applied globally to the database.');
+      alert('Changes saved successfully!');
     } catch (err: any) {
       console.error('Rename operation failed:', err);
-      alert(`Update Failed: ${err.message}. If this persists, try "Import Defaults" first.`);
+      alert(`Update Failed: ${err.message}.`);
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleClearCache = () => {
-    localStorage.removeItem('exam_nest_files_cache');
-    alert('Local cache cleared. The app will fetch fresh data from the database.');
-    onUpdateFiles();
   };
 
   if (!isLoggedIn) {
@@ -477,16 +435,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-1">Total Resources</p>
             <p className="text-4xl font-black text-white">{files.length}</p>
           </div>
-          <button 
-            onClick={handleClearCache}
-            className="group flex items-center space-x-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl border border-white/10 transition-all"
-            title="Clear Local Cache"
-          >
-            <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span className="font-bold text-sm">Refresh App</span>
-          </button>
           <button 
             onClick={() => setShowLogoutConfirm(true)}
             className="group flex items-center space-x-2 bg-white/10 hover:bg-red-500/20 text-white px-5 py-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
@@ -612,8 +560,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div>
                       <h4 className="font-black text-slate-800 text-lg mb-2">Configure CORS</h4>
                       <p className="text-sm text-slate-600 leading-relaxed">
-                        Go to <strong>Storage → Settings → CORS</strong>. Add a new row:
+                        Go to <strong>Storage</strong> (left sidebar) → <strong>Settings</strong> (at the <strong>very bottom</strong> of the storage sidebar, not the main settings) → <strong>CORS</strong>. Or use this direct link:
                       </p>
+                      <a 
+                        href="https://supabase.com/dashboard/project/llvihwwmetkqvfxwfbbm/storage/settings" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center text-xs font-bold text-indigo-600 hover:underline"
+                      >
+                        Open Storage Settings →
+                      </a>
                       <ul className="mt-3 space-y-2 text-xs font-medium text-slate-500">
                         <li className="flex justify-between border-b border-slate-100 pb-1"><span>Allowed Origins:</span> <span className="text-slate-900">*</span></li>
                         <li className="flex justify-between border-b border-slate-100 pb-1"><span>Allowed Methods:</span> <span className="text-slate-900">GET, POST, PUT, DELETE</span></li>
@@ -632,7 +588,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       
                       <div className="space-y-4">
                         <a 
-                          href="https://supabase.com/dashboard/project/uxuuqkvkpmrqdssajnia/sql/new" 
+                          href="https://supabase.com/dashboard/project/llvihwwmetkqvfxwfbbm/sql/new" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="flex items-center justify-center space-x-2 w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
@@ -640,7 +596,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
-                          <span>1. Open Your Supabase SQL Editor</span>
+                          <span>1. Open My Supabase SQL Editor</span>
                         </a>
 
                         <div className="relative group">
@@ -673,21 +629,15 @@ CREATE TABLE IF NOT EXISTS categories (
 
 -- 4. Enable Public Access
 ALTER TABLE academic_files ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Allow all access" ON academic_files;
 CREATE POLICY "Allow all access" ON academic_files FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Allow all access" ON subjects;
+ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access" ON subjects FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Allow all access" ON categories;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                           </pre>
                           <button 
                             onClick={() => {
-                              const sql = `-- 1. Create Academic Files table\nCREATE TABLE IF NOT EXISTS academic_files (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  subject TEXT NOT NULL,\n  category TEXT NOT NULL,\n  file_name TEXT NOT NULL,\n  file_url TEXT NOT NULL,\n  storage_path TEXT NOT NULL,\n  upload_date DATE DEFAULT CURRENT_DATE,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 2. Create Subjects table\nCREATE TABLE IF NOT EXISTS subjects (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  name TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 3. Create Categories table\nCREATE TABLE IF NOT EXISTS categories (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  name TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 4. Enable Public Access\nALTER TABLE academic_files ENABLE ROW LEVEL SECURITY;\nALTER TABLE subjects ENABLE ROW LEVEL SECURITY;\nALTER TABLE categories ENABLE ROW LEVEL SECURITY;\n\nDROP POLICY IF EXISTS "Allow all access" ON academic_files;\nCREATE POLICY "Allow all access" ON academic_files FOR ALL USING (true);\n\nDROP POLICY IF EXISTS "Allow all access" ON subjects;\nCREATE POLICY "Allow all access" ON subjects FOR ALL USING (true);\n\nDROP POLICY IF EXISTS "Allow all access" ON categories;\nCREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`;
+                              const sql = `-- 1. Create Academic Files table\nCREATE TABLE IF NOT EXISTS academic_files (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  subject TEXT NOT NULL,\n  category TEXT NOT NULL,\n  file_name TEXT NOT NULL,\n  file_url TEXT NOT NULL,\n  storage_path TEXT NOT NULL,\n  upload_date DATE DEFAULT CURRENT_DATE,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 2. Create Subjects table\nCREATE TABLE IF NOT EXISTS subjects (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  name TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 3. Create Categories table\nCREATE TABLE IF NOT EXISTS categories (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  name TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- 4. Enable Public Access\nALTER TABLE academic_files ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow all access" ON academic_files FOR ALL USING (true);\nALTER TABLE subjects ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow all access" ON subjects FOR ALL USING (true);\nALTER TABLE categories ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`;
                               navigator.clipboard.writeText(sql);
                               alert('SQL Copied! Now paste it in the Supabase tab you just opened and click RUN.');
                             }}
@@ -722,30 +672,17 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                       </ul>
                     </div>
                   </div>
-
-                  <div className="flex space-x-6">
-                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black">6</div>
-                    <div>
-                      <h4 className="font-black text-slate-800 text-lg mb-2">Fix Mobile Uploads (CORS)</h4>
-                      <p className="text-sm text-slate-600 leading-relaxed">
-                        If uploading works on PC but fails on mobile, you need to configure CORS:
-                      </p>
-                      <ol className="mt-2 text-sm text-slate-600 list-decimal list-inside space-y-1">
-                        <li>Go to <strong>Storage</strong> → <strong>Configuration</strong> (bottom left).</li>
-                        <li>Click <strong>CORS</strong>.</li>
-                        <li>Click <strong>Add Rule</strong>.</li>
-                        <li>Set <strong>Allowed Origins</strong> to <code>*</code>.</li>
-                        <li>Set <strong>Allowed Methods</strong> to <code>GET, POST, PUT, DELETE</code>.</li>
-                        <li>Save the rule.</li>
-                      </ol>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-12 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
                   <p className="text-xs text-indigo-700 font-medium leading-relaxed">
-                    <strong>Note:</strong> After completing these steps, click the "Retry Connection" button or refresh the page. The error will disappear and you'll be able to upload files.
+                    <strong>CRITICAL:</strong> If you still get "Failed to fetch" after setting CORS:
                   </p>
+                  <ul className="mt-2 space-y-1 text-[11px] text-indigo-600 list-disc list-inside">
+                    <li>Disable <strong>Ad-Blockers</strong> (uBlock, AdBlock, etc.)</li>
+                    <li>Disable <strong>Brave Shields</strong> if using Brave</li>
+                    <li>Check your browser console (F12) for red CORS errors</li>
+                  </ul>
                 </div>
 
                 <button 
@@ -974,12 +911,8 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
               </p>
               <button 
                 onClick={handleImportDefaults}
-                disabled={isUploading || dbStatus === 'error'}
-                className={`px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center space-x-2 ${
-                  dbStatus === 'error' 
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                    : 'bg-white text-indigo-600 hover:bg-indigo-50'
-                }`}
+                disabled={isUploading}
+                className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-lg flex items-center space-x-2"
               >
                 {isUploading ? (
                   <div className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -988,13 +921,8 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
                   </svg>
                 )}
-                <span>{dbStatus === 'error' ? 'Setup Required' : 'Import Defaults to Database'}</span>
+                <span>Import Defaults to Database</span>
               </button>
-              {dbStatus === 'error' && (
-                <p className="text-[10px] text-indigo-200 mt-2 font-bold uppercase tracking-wider">
-                  Please complete the SQL setup above before importing.
-                </p>
-              )}
             </div>
           </div>
 
@@ -1096,11 +1024,11 @@ CREATE POLICY "Allow all access" ON categories FOR ALL USING (true);`}
       {editingItem && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
           <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl animate-scale-up border border-slate-100">
-            <h3 className="text-2xl font-black text-slate-900 mb-2">Update New Name</h3>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">Rename {editingItem.type}</h3>
             <p className="text-slate-500 mb-6 font-medium">
               {editingItem.type === 'FILE' 
                 ? 'Update the display title for this document.' 
-                : `Changing this will update all existing files associated with this ${editingItem.type.toLowerCase()} globally in the database.`}
+                : 'Changing this will update all existing files associated with it.'}
             </p>
             <input 
               type="text" 
